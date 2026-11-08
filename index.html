@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat+Brush&family=Patrick+Hand&display=swap">
 <style>
-/* Layout: one full-width notebook-page column (up to 1800px). Title bar, then a wide game stage drawn like a sketchbook page
+/* Layout: one centered notebook-page column (up to 1500px). Title bar, then a wide game stage drawn like a sketchbook page
    (ink outline, hard offset shadow), then a short field guide for controls, scoring and power-ups. */
 :root{
   color-scheme: light;
@@ -35,7 +35,7 @@ body{
   padding-right:max(16px,env(safe-area-inset-right,0px));
 }
 :focus-visible{outline:3px solid var(--blue);outline-offset:3px}
-.app{max-width:1800px;margin:0 auto;display:grid;gap:16px}
+.app{max-width:1500px;margin:0 auto;display:grid;gap:16px}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .logo{font-family:var(--font-display);font-weight:400;font-size:clamp(2.1rem,6vw,3rem);line-height:1;margin:0;letter-spacing:.5px;transform:rotate(-1.5deg)}
 .logo span{background:linear-gradient(transparent 60%,var(--yellow) 60% 92%,transparent 92%);padding:0 6px}
@@ -46,7 +46,7 @@ button.chip:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)
 button.chip:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
 
 .stage{
-  position:relative;aspect-ratio:2/1;max-height:max(360px,calc(100dvh - 120px));background:var(--paper);overflow:hidden;
+  position:relative;width:100%;aspect-ratio:2/1;max-height:max(360px,calc(100dvh - 120px));background:var(--paper);overflow:hidden;
   border:3px solid var(--ink);
   border-radius:18px 22px 16px 24px/22px 16px 24px 18px;
   box-shadow:7px 7px 0 var(--ink);
