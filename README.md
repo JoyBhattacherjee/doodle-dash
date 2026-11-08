@@ -19,6 +19,7 @@ Open `index.html` in a browser, or enable GitHub Pages (Settings → Pages → d
 
 - Run forever across procedurally generated platforms. Speed and gap width grow over time.
 - Dodge spikes, saws, bats and slugs, or stomp bats and slugs from above. Chained stomps score more.
+- Pick one of three characters on the menu (Blobby, Whisk or Boxy). They look different but play the same.
 - Collect coins and power-ups: Shield (absorbs one hit), Wings (double jump), Magnet (pulls in coins), Bolt (recharges dash).
 - Your best score is saved in the browser with `localStorage`.
 

@@ -101,7 +101,22 @@ button.chip:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
 .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 22px;margin:4px auto 14px;text-align:left;font-variant-numeric:tabular-nums}
 .stats b{font-weight:400;font-family:var(--font-display);font-size:1.5rem;line-height:1.1}
 .badge{display:inline-block;background:var(--yellow);border:2.5px solid var(--ink);border-radius:10px;padding:0 10px;margin-bottom:8px;transform:rotate(-2deg)}
-@media (max-width:600px){.powers,.card p.hint{display:none}.card{padding:12px 18px 16px}}
+.picker{display:flex;gap:12px;justify-content:center;margin:0 0 8px}
+.pick{
+  position:relative;font:inherit;color:var(--ink);background:var(--white);cursor:pointer;
+  border:2.5px solid var(--ink);border-radius:14px;padding:2px 8px 8px;
+  display:grid;justify-items:center;box-shadow:3px 3px 0 var(--ink);
+}
+.pick canvas{position:static;width:100px;height:84px;display:block}
+.pick:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+.pick.on{background:#E4EEFF;box-shadow:5px 5px 0 var(--blue)}
+.pick-name{font-family:var(--font-display);font-size:1.3rem;line-height:1;padding:0 4px}
+.pick.on .pick-name{background:linear-gradient(transparent 55%,var(--yellow) 55% 92%,transparent 92%)}
+.pick-key{position:absolute;top:6px;left:6px;font-size:.72rem;padding:0 5px;border-bottom-width:3px}
+@media (max-width:600px){
+  .powers,.card p.hint{display:none}.card{padding:12px 18px 16px}
+  .picker{gap:8px}.pick{padding:0 4px 6px}.pick canvas{width:76px;height:64px}.pick-name{font-size:1.1rem}
+}
 
 .guide{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:18px 32px}
 .guide h2{font-family:var(--font-display);font-weight:400;font-size:1.7rem;margin:0 0 6px}
@@ -133,6 +148,12 @@ const C = {
   hillFar: '#DCE9FB', hillNear: '#D2F0E0', steel: '#BAC6E3'
 };
 const POP_FONT = "bold 22px 'Patrick Hand','Comic Sans MS',cursive";
+// Three playable characters. They look different but play the same, so the choice is purely cosmetic.
+const CHARACTERS = {
+  blob: { name: 'Blobby', tag: 'The original doodle, with a red scarf.', body: '#FFD23F', accent: '#FF5A5F' },
+  cat: { name: 'Whisk', tag: 'Pointy ears, whiskers and a swishy tail.', body: '#FF8C42', accent: '#FFB3C1' },
+  bot: { name: 'Boxy', tag: 'A tiny robot with a glowing visor.', body: '#6EC6FF', accent: '#35C98A' }
+};
 
 function mulberry32(a) {
   return function () {
@@ -175,6 +196,7 @@ class Game {
     this.paused = false; this.destroyed = false;
     this.reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     this.rand = mulberry32(1);
+    this.character = 'blob';
     this.toIdle();
     this.onResize = () => this.resize();
     window.addEventListener('resize', this.onResize);
@@ -885,8 +907,11 @@ class Game {
     this.drawBlob(sx, by, 1, false);
   }
 
+  // Draws the selected character with its feet at (x, by). Self-contained: it only reads this.ctx, this.p,
+  // this.time and this.character, so the menu previews can call it with a stand-in object.
   drawBlob(x, by, alpha, ghost) {
-    const ctx = this.ctx, p = this.p, t = this.time;
+    const ctx = this.ctx, p = this.p, t = this.time, ch = this.character || 'blob';
+    const pal = CHARACTERS[ch] || CHARACTERS.blob;
     const blink = !ghost && p.invuln > 0 && Math.floor(t * 18) % 2 === 0;
     ctx.save();
     ctx.globalAlpha = alpha * (blink ? 0.45 : 1);
@@ -896,13 +921,25 @@ class Game {
     const air = !p.onGround, mid = -PH / 2 - 2;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
-    // scarf
-    const len = p.dashT > 0 ? 15 : 9, pts = [[-12, -26]];
-    for (let i = 1; i <= 4; i++) pts.push([-12 - i * len, -26 + Math.sin(t * 14 - i * 1.2) * (3 + i) - (air ? p.vy * 0.006 * i : 0)]);
-    for (const [col, lw] of [[C.ink, 10], [C.red, 5.5]]) {
-      ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath();
-      pts.forEach((q, i) => { if (i === 0) ctx.moveTo(q[0], q[1]); else ctx.lineTo(q[0], q[1]); });
-      ctx.stroke();
+    // what trails behind: Blobby's scarf, Whisk's tail, Boxy's dash thruster
+    if (ch === 'blob') {
+      const len = p.dashT > 0 ? 15 : 9, pts = [[-12, -26]];
+      for (let i = 1; i <= 4; i++) pts.push([-12 - i * len, -26 + Math.sin(t * 14 - i * 1.2) * (3 + i) - (air ? p.vy * 0.006 * i : 0)]);
+      for (const [col, lw] of [[C.ink, 10], [pal.accent, 5.5]]) {
+        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath();
+        pts.forEach((q, i) => { if (i === 0) ctx.moveTo(q[0], q[1]); else ctx.lineTo(q[0], q[1]); });
+        ctx.stroke();
+      }
+    } else if (ch === 'cat') {
+      const sw = Math.sin(t * 9) * 6 + (air ? 8 : 0);
+      for (const [col, lw] of [[C.ink, 10], [pal.body, 5.5]]) {
+        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(-16, -14);
+        ctx.bezierCurveTo(-34, -8, -40 + sw * 0.4, -30, -30 + sw * 0.5, -44 - sw * 0.3); ctx.stroke();
+      }
+    } else if (p.dashT > 0) {
+      const fl = 22 + Math.random() * 10;
+      ctx.fillStyle = C.yellow; ctx.strokeStyle = C.ink; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-19, -34); ctx.lineTo(-19 - fl, -26); ctx.lineTo(-19, -18); ctx.closePath(); ctx.fill(); ctx.stroke();
     }
 
     // wings power-up
@@ -924,32 +961,77 @@ class Game {
       ctx.beginPath(); ctx.ellipse(fx + 2, fy, 5.5, 3.2, 0, 0, Math.PI * 2); ctx.fill();
     }
 
-    // body
-    ctx.fillStyle = C.yellow; ctx.strokeStyle = C.ink; ctx.lineWidth = 3.5;
-    ctx.beginPath(); ctx.ellipse(0, mid, 20, 22, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(0, mid, 14, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,90,95,.45)'; ctx.beginPath(); ctx.ellipse(15, mid + 8, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
-
-    // eyes + mouth
-    const ey = mid - 5, look = clamp(p.vy / 900, -1, 1) * 3;
-    ctx.lineWidth = 2.5;
-    for (const ex of [3, 15]) {
-      if (p.dead) {
-        ctx.strokeStyle = C.ink; ctx.beginPath(); ctx.moveTo(ex - 4, ey - 4); ctx.lineTo(ex + 4, ey + 4); ctx.moveTo(ex + 4, ey - 4); ctx.lineTo(ex - 4, ey + 4); ctx.stroke();
-      } else {
-        ctx.fillStyle = C.white; ctx.strokeStyle = C.ink; ctx.beginPath(); ctx.arc(ex, ey, 6.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(ex + 2.2, ey + look, 3, 0, Math.PI * 2); ctx.fill();
+    // Whisk's ears sit behind the head
+    if (ch === 'cat') {
+      for (const s of [-1, 1]) {
+        ctx.fillStyle = pal.body; ctx.strokeStyle = C.ink; ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.moveTo(s * 17, mid - 8); ctx.lineTo(s * 15, mid - 35); ctx.lineTo(s * 3, mid - 20); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = pal.accent;
+        ctx.beginPath(); ctx.moveTo(s * 14, mid - 14); ctx.lineTo(s * 13.5, mid - 28); ctx.lineTo(s * 6, mid - 19); ctx.closePath(); ctx.fill();
       }
     }
-    ctx.strokeStyle = C.ink; ctx.fillStyle = C.ink; ctx.lineWidth = 2.5;
-    if (air || p.dead) { ctx.beginPath(); ctx.ellipse(11, mid + 10, 3, 4, 0, 0, Math.PI * 2); ctx.fill(); }
-    else { ctx.beginPath(); ctx.arc(10, mid + 6, 5, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); }
 
-    // head tuft
-    const bob = Math.sin(t * 10) * 2 + (air ? clamp(p.vy * 0.004, -3, 3) : 0), top = mid - 22;
-    ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(2, top + 1); ctx.quadraticCurveTo(-4 + bob, top - 9, -2 + bob * 1.5, top - 15); ctx.stroke();
-    ctx.fillStyle = C.red; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-2 + bob * 1.5, top - 16, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // body
+    ctx.fillStyle = pal.body; ctx.strokeStyle = C.ink; ctx.lineWidth = 3.5;
+    if (ch === 'bot') {
+      rr(ctx, -19, mid - 22, 38, 44, 10); ctx.fill(); ctx.stroke();
+      ctx.lineWidth = 2.5; ctx.fillStyle = C.white; rr(ctx, -10, mid + 5, 20, 12, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = C.red; ctx.beginPath(); ctx.arc(-4, mid + 11, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = pal.accent; ctx.beginPath(); ctx.arc(4, mid + 11, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = C.ink; rr(ctx, -11, mid - 18, 30, 18, 6); ctx.fill();
+      if (p.dead) {
+        ctx.strokeStyle = pal.accent; ctx.lineWidth = 2.5; ctx.beginPath();
+        for (const ex of [-1, 11]) { ctx.moveTo(ex - 3.5, mid - 12); ctx.lineTo(ex + 3.5, mid - 5); ctx.moveTo(ex + 3.5, mid - 12); ctx.lineTo(ex - 3.5, mid - 5); }
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = pal.accent;
+        const er = air ? 4.2 : 3.4;
+        ctx.beginPath(); ctx.arc(-1, mid - 9, er, 0, Math.PI * 2); ctx.arc(11, mid - 9, er, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, mid - 22); ctx.lineTo(0, mid - 31); ctx.stroke();
+      ctx.fillStyle = Math.floor(t * 4) % 2 ? pal.accent : C.yellow; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, mid - 34, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.ellipse(0, mid, 20, 22, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, mid, 14, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
+      if (ch === 'cat') {
+        ctx.fillStyle = '#FFF1DD'; ctx.beginPath(); ctx.ellipse(6, mid + 11, 11, 8.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(29,37,64,.75)'; ctx.lineWidth = 3; ctx.beginPath();
+        ctx.moveTo(-6, mid - 21); ctx.lineTo(-5, mid - 15); ctx.moveTo(0, mid - 22); ctx.lineTo(0, mid - 14); ctx.moveTo(6, mid - 21); ctx.lineTo(5, mid - 15);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = 'rgba(255,90,95,.45)'; ctx.beginPath(); ctx.ellipse(15, mid + 8, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // eyes + mouth
+      const ey = mid - 5, look = clamp(p.vy / 900, -1, 1) * 3;
+      ctx.lineWidth = 2.5;
+      for (const ex of [3, 15]) {
+        if (p.dead) {
+          ctx.strokeStyle = C.ink; ctx.beginPath(); ctx.moveTo(ex - 4, ey - 4); ctx.lineTo(ex + 4, ey + 4); ctx.moveTo(ex + 4, ey - 4); ctx.lineTo(ex - 4, ey + 4); ctx.stroke();
+        } else {
+          ctx.fillStyle = C.white; ctx.strokeStyle = C.ink; ctx.beginPath(); ctx.arc(ex, ey, 6.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(ex + 2.2, ey + look, 3, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      ctx.strokeStyle = C.ink; ctx.fillStyle = C.ink; ctx.lineWidth = 2.5;
+      if (air || p.dead) { ctx.beginPath(); ctx.ellipse(11, mid + 10, 3, 4, 0, 0, Math.PI * 2); ctx.fill(); }
+      else { ctx.beginPath(); ctx.arc(10, mid + 6, 5, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); }
+
+      if (ch === 'cat') {
+        ctx.fillStyle = '#FF7A93'; ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.moveTo(19, mid - 1); ctx.lineTo(24.5, mid - 1); ctx.lineTo(21.7, mid + 2.8); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.lineWidth = 2; ctx.beginPath();
+        ctx.moveTo(20, mid + 4); ctx.lineTo(34, mid); ctx.moveTo(20, mid + 6); ctx.lineTo(34, mid + 8);
+        ctx.stroke();
+      } else {
+        // Blobby's head tuft
+        const bob = Math.sin(t * 10) * 2 + (air ? clamp(p.vy * 0.004, -3, 3) : 0), top = mid - 22;
+        ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(2, top + 1); ctx.quadraticCurveTo(-4 + bob, top - 9, -2 + bob * 1.5, top - 15); ctx.stroke();
+        ctx.fillStyle = pal.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-2 + bob * 1.5, top - 16, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+    }
 
     // shield bubble
     if (p.shield) {
@@ -982,7 +1064,7 @@ class Game {
 /* ===== SOUND (tiny WebAudio blips, started after the first tap or key press) ===== */
 function readStore(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
 function writeStore(k, v) { try { window.localStorage.setItem(k, String(v)); } catch (e) {} }
-const STORE_BEST = 'doodle-dash-best', STORE_MUTE = 'doodle-dash-muted';
+const STORE_BEST = 'doodle-dash-best', STORE_MUTE = 'doodle-dash-muted', STORE_CHAR = 'doodle-dash-character';
 
 const sound = {
   ctx: null, muted: readStore(STORE_MUTE) === '1',
@@ -1070,11 +1152,49 @@ function Hud({ hud }) {
         ready ? h('span', { className: 'key' }, 'Shift') : null)));
 }
 
-function MenuOverlay({ best, onPlay }) {
+// A small live preview: the real character drawing code, run on a stand-in game object.
+function CharPreview({ ch }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const cv = ref.current, ctx = cv.getContext('2d');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = 100 * dpr; cv.height = 84 * dpr;
+    const fake = { ctx, p: Game.prototype.newPlayer(), time: 0, character: ch };
+    const still = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    let raf = 0, alive = true;
+    const draw = (ts) => {
+      if (!alive) return;
+      fake.time = ts / 1000; fake.p.anim = fake.time;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, 100, 84);
+      Game.prototype.drawBlob.call(fake, 60, 78 - Math.abs(Math.sin(fake.time * 6.5)) * 3, 1, false);
+      if (!still) raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => { alive = false; cancelAnimationFrame(raf); };
+  }, [ch]);
+  return h('canvas', { ref, 'aria-hidden': true });
+}
+
+function CharPicker({ value, onChange }) {
+  return h('div', { className: 'picker', role: 'radiogroup', 'aria-label': 'Choose your character' },
+    Object.keys(CHARACTERS).map((id, i) =>
+      h('button', {
+        key: id, type: 'button', role: 'radio', 'aria-checked': value === id, className: 'pick' + (value === id ? ' on' : ''),
+        onClick: (e) => { e.currentTarget.blur(); onChange(id); }
+      },
+        h('span', { className: 'key pick-key', 'aria-hidden': true }, String(i + 1)),
+        h(CharPreview, { ch: id }),
+        h('span', { className: 'pick-name' }, CHARACTERS[id].name))));
+}
+
+function MenuOverlay({ best, onPlay, character, onPick }) {
   return h('div', { className: 'overlay' },
     h('div', { className: 'card' },
       h('h2', null, 'Doodle Dash'),
       h('p', null, 'Sprint across the notebook. Hop the pits, stomp the grumps, dash through trouble.'),
+      h(CharPicker, { value: character, onChange: onPick }),
+      h('p', { className: 'hint', style: { margin: '0 0 12px' } }, CHARACTERS[character].tag),
       h('div', { className: 'btn-row' }, h('button', { className: 'btn', onClick: onPlay, autoFocus: true }, 'Start running')),
       h('p', { className: 'hint', style: { margin: '10px 0 0' } }, best > 0 ? 'Best: ' + best + ' · ' : '', 'or press ', h('span', { className: 'key' }, 'Space')),
       h('div', { className: 'powers' },
@@ -1119,7 +1239,7 @@ function Guide() {
       h('ul', null,
         item(k('Space'), ' or tap the game: jump. Hold longer for a higher hop.', 'a'),
         item(k('Shift'), ' or the Dash button: a short, invincible burst that flattens enemies and clears small gaps. It recharges in about three seconds.', 'b'),
-        item(k('P'), ' pauses the game and M mutes the sound.', 'c'))),
+        item(k('P'), ' pauses, M mutes, and 1, 2 or 3 picks your character on the menu.', 'c'))),
     h('div', null, h('h2', null, 'Scoring'),
       h('ul', null,
         item(h(Icon, { kind: 'coin' }), 'Each meter run is 1 point and each coin is 10.', 'a'),
@@ -1142,6 +1262,7 @@ function App() {
   const [best, setBest] = useState(() => Number(readStore(STORE_BEST)) || 0);
   const bestRef = useRef(best);
   const [muted, setMuted] = useState(sound.muted);
+  const [character, setCharacter] = useState(() => { const c = readStore(STORE_CHAR); return CHARACTERS[c] ? c : 'blob'; });
 
   const go = useCallback((s) => { screenRef.current = s; setScreen(s); }, []);
 
@@ -1160,6 +1281,12 @@ function App() {
     gameRef.current = game;
     return () => game.destroy();
   }, [go]);
+
+  useEffect(() => { if (gameRef.current) gameRef.current.character = character; }, [character]);
+  const chooseChar = useCallback((id) => {
+    if (!CHARACTERS[id]) return;
+    writeStore(STORE_CHAR, id); setCharacter(id);
+  }, []);
 
   const startGame = useCallback(() => {
     sound.ensure();
@@ -1200,6 +1327,8 @@ function App() {
         if (s === 'menu' || (s === 'over' && performance.now() - overAtRef.current > 600)) startGame();
       } else if (e.code === 'KeyM') {
         toggleMute();
+      } else if (/^(Digit|Numpad)[1-3]$/.test(e.code)) {
+        if (s === 'menu') chooseChar(Object.keys(CHARACTERS)[Number(e.code.slice(-1)) - 1]);
       }
     };
     const up = (e) => { if (JUMP.includes(e.code) && gameRef.current) gameRef.current.release(); };
@@ -1212,7 +1341,7 @@ function App() {
       window.removeEventListener('keydown', down); window.removeEventListener('keyup', up);
       window.removeEventListener('blur', pauseGame); document.removeEventListener('visibilitychange', hide);
     };
-  }, [startGame, pauseGame, resumeGame, toggleMute]);
+  }, [startGame, pauseGame, resumeGame, toggleMute, chooseChar]);
 
   const onPointerDown = (e) => {
     if (screenRef.current !== 'playing') return;
@@ -1236,7 +1365,7 @@ function App() {
         h('div', null),
         h('div', { className: 'hud-bottom', style: { justifyContent: 'flex-end' } },
           h('button', { className: 'dash-btn', disabled: hud.dash < 1, onPointerDown: (e) => { e.stopPropagation(); e.preventDefault(); gameRef.current.dash(); }, 'aria-label': 'Dash' }, 'DASH'))) : null,
-      screen === 'menu' ? h(MenuOverlay, { best, onPlay: startGame }) : null,
+      screen === 'menu' ? h(MenuOverlay, { best, onPlay: startGame, character, onPick: chooseChar }) : null,
       screen === 'paused' ? h(PauseOverlay, { onResume: resumeGame, onRestart: startGame, onMenu: toMenu }) : null,
       screen === 'over' && result ? h(OverOverlay, { result, best, onAgain: startGame, onMenu: toMenu }) : null),
     h(Guide),
